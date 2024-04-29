@@ -23,7 +23,7 @@
 * Device(s)    : R5F10NPJ
 * Tool-Chain   : CCRL
 * Description  : This file implements system initializing function.
-* Creation Date: 28-04-2024
+* Creation Date: 29-04-2024
 ***********************************************************************************************************************/
 
 /***********************************************************************************************************************
@@ -33,6 +33,7 @@ Includes
 #include "r_cg_cgc.h"
 #include "r_cg_port.h"
 #include "r_cg_sau.h"
+#include "r_cg_intp.h"
 /* Start user code for include. Do not edit comment generated here */
 /* End user code. Do not edit comment generated here */
 #include "r_cg_userdefine.h"
@@ -62,6 +63,7 @@ void R_Systeminit(void)
     R_PORT_Create();
     R_CGC_Create();
     R_SAU1_Create();
+    R_INTC_Create();
     IAWCTL = 0x00U;
 }
 

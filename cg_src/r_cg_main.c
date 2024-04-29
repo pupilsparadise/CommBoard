@@ -23,7 +23,7 @@
 * Device(s)    : R5F10NPJ
 * Tool-Chain   : CCRL
 * Description  : This file implements main function.
-* Creation Date: 28-04-2024
+* Creation Date: 29-04-2024
 ***********************************************************************************************************************/
 
 /***********************************************************************************************************************
@@ -33,6 +33,7 @@ Includes
 #include "r_cg_cgc.h"
 #include "r_cg_port.h"
 #include "r_cg_sau.h"
+#include "r_cg_intp.h"
 /* Start user code for include. Do not edit comment generated here */
 #include "App_Main.h"
 /* End user code. Do not edit comment generated here */
@@ -61,9 +62,10 @@ void main(void)
 {
     R_MAIN_UserInit();
     /* Start user code. Do not edit comment generated here */
+    App_Main();
     while (1U)
     {
-        App_Main();
+       ;
     }
     /* End user code. Do not edit comment generated here */
 }

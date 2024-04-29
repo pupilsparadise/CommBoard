@@ -657,6 +657,32 @@ typedef enum {
     CAN_TX_BUS_OFF_STATE = 0x20
 } CAN_ERROR_STATE;
 
+//! Interrupt Flags
+typedef struct _CAN_INT_FLAGS {
+    uint32_t TXIF : 1;
+    uint32_t RXIF : 1;
+    uint32_t TBCIF : 1;
+    uint32_t MODIF : 1;
+    uint32_t TEFIF : 1;
+    uint32_t unimplemented1 : 3;
+
+    uint32_t ECCIF : 1;
+    uint32_t SPICRCIF : 1;
+    uint32_t TXATIF : 1;
+    uint32_t RXOVIF : 1;
+    uint32_t SERRIF : 1;
+    uint32_t CERRIF : 1;
+    uint32_t WAKIF : 1;
+    uint32_t IVMIF : 1;
+} CAN_INT_FLAGS;
+
+//! Interrupt Flag Register
+typedef union _REG_CiINTFLAG {
+    CAN_INT_FLAGS IF;
+    uint16_t word;
+    uint8_t byte[2];
+} REG_CiINTFLAG;
+
 //! Transmit/Receive Error Count Register
 typedef union _REG_CiTREC {
 
@@ -755,4 +781,5 @@ uint8_t isRemoteRequest(void);
 uint8_t isExtendedFrame(void);
 
 void OtdUart_DebugSend_CAN(volatile const char *s);
+int8_t DRV_CANFDSPI_ModuleEventClear(CAN_MODULE_EVENT flags);
 #endif

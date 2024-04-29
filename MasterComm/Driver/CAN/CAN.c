@@ -1846,6 +1846,34 @@ uint8_t MCP2518FD_SendMsg(const uint8_t *buf, uint8_t len, unsigned long id, uin
     return spiTransferError;
 }
 
+int8_t DRV_CANFDSPI_ModuleEventClear(CAN_MODULE_EVENT flags)
+{
+    int8_t spiTransferError = 0;
+    uint16_t a = 0;
+    
+        REG_CiINTFLAG intFlags;
+
+    // Read Interrupt flags
+    a = cREGADDR_CiINTFLAG;
+
+    intFlags.word = 0;
+
+    // Write 1 to all flags except the ones that we want to clear
+    // Writing a 1 will not set the flag
+    // Only writing a 0 will clear it
+    // The flags are HS/C
+    intFlags.word = CAN_ALL_EVENTS;
+    intFlags.word &= ~flags;
+
+    // Write
+    spiTransferError = DRV_CANFDSPI_WriteHalfWord(a, intFlags.word);
+    if (spiTransferError) {
+        return -2;
+    }
+
+    return spiTransferError;
+}
+
 unsigned long getCanId(void)    { return can_id; }
 
 uint8_t isRemoteRequest(void)   { return rtr_; }
