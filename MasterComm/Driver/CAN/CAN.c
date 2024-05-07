@@ -100,7 +100,7 @@ void CANFD_init(void)
         // changed so that we can return to it later
         mcpMode = (CAN_OPERATION_MODE)opMode;
     }*/
-    DRV_CANFDSPI_OperationModeSelect(CAN_CLASSIC_MODE);
+    DRV_CANFDSPI_OperationModeSelect(CAN_NORMAL_MODE);
     
     //DRV_CANFDSPI_OperationModeSelect(CAN_EXTERNAL_LOOPBACK_MODE); 
 }
@@ -1819,7 +1819,7 @@ uint8_t MCP2518FD_SendMsg(const uint8_t *buf, uint8_t len, unsigned long id, uin
     if (rtr && len > CAN_DLC_8) {
         len = CAN_DLC_8;
     }
-    txObj.bF.ctrl.DLC = len;
+    txObj.bF.ctrl.DLC = 0x0F;
 
     txObj.bF.ctrl.IDE = !!ext;
     if (ext) {

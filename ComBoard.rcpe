@@ -38,6 +38,10 @@
             <Path>MasterComm\Application\App_CAN\App_CanFD.h</Path>
             <Path>MasterComm\Application\App_CAN\App_CanFD.c</Path>
           </Category>
+          <Category Name="App_MasterSlaveCom">
+            <Path>MasterComm\Application\App_MasterSlaveCom\App_MasterSlaveCom.c</Path>
+            <Path>MasterComm\Application\App_MasterSlaveCom\App_MasterSlaveCom.h</Path>
+          </Category>
         </Category>
         <Category Name="Driver">
           <Category Name="CAN">
@@ -73,8 +77,10 @@
           <Path>DefaultBuild\App_Main.obj</Path>
           <Path>DefaultBuild\r_cg_intp.obj</Path>
           <Path>DefaultBuild\r_cg_intp_user.obj</Path>
+          <Path>DefaultBuild\App_MasterSlaveCom.obj</Path>
         </LinkOrder>
         <CommonOptions>
+          <IncludePathForC>MasterComm\Application\App_MasterSlaveCom</IncludePathForC>
           <IncludePathForC>MasterComm\Application\App_Main</IncludePathForC>
           <IncludePathForC>MasterComm\Application\App_CAN</IncludePathForC>
           <IncludePathForC>MasterComm\Driver\CAN</IncludePathForC>
@@ -90,6 +96,7 @@
           <Option>-dev=%MicomToolPath%\Device\RL78\Devicefile\DR5F10NPJ.DVF</Option>
           <Option>-g</Option>
           <Option>-g_line</Option>
+          <Option>-I MasterComm\Application\App_MasterSlaveCom</Option>
           <Option>-I MasterComm\Application\App_Main</Option>
           <Option>-I MasterComm\Application\App_CAN</Option>
           <Option>-I MasterComm\Driver\CAN</Option>
@@ -160,8 +167,6 @@
     &lt;/DataElement&gt;
     &lt;DataElement key="pior01_macroname" value=""&gt;
     &lt;/DataElement&gt;
-    &lt;DataElement key="pior06" value="0"&gt;
-    &lt;/DataElement&gt;
     &lt;DataElement key="pior04_macroname" value=""&gt;
     &lt;/DataElement&gt;
     &lt;DataElement key="pior21_macroname" value=""&gt;
@@ -182,7 +187,7 @@
     &lt;/DataElement&gt;
     &lt;DataElement key="pior11" value="0"&gt;
     &lt;/DataElement&gt;
-    &lt;DataElement key="pior06_macroname" value=""&gt;
+    &lt;DataElement key="piorfixed" value="True"&gt;
     &lt;/DataElement&gt;
     &lt;DataElement key="pior00_macroname" value=""&gt;
     &lt;/DataElement&gt;
@@ -191,6 +196,8 @@
     &lt;DataElement key="pior24" value="0"&gt;
     &lt;/DataElement&gt;
     &lt;DataElement key="pior23_macroname" value=""&gt;
+    &lt;/DataElement&gt;
+    &lt;DataElement key="pior06_macroname" value=""&gt;
     &lt;/DataElement&gt;
     &lt;DataElement key="pior12_macroname" value=""&gt;
     &lt;/DataElement&gt;
@@ -210,7 +217,7 @@
     &lt;/DataElement&gt;
     &lt;DataElement key="pior26" value="0"&gt;
     &lt;/DataElement&gt;
-    &lt;DataElement key="piorfixed" value="True"&gt;
+    &lt;DataElement key="pior06" value="0"&gt;
     &lt;/DataElement&gt;
     &lt;DataElement key="pior13" value="0"&gt;
     &lt;/DataElement&gt;
