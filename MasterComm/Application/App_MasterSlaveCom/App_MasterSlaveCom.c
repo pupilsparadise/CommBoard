@@ -30,7 +30,7 @@ MasterStateMachine_tst CommMainState_st = {	MasterCmdState_e,//default com state
 
 
 //Config the slave address
-App_SlaveID ConfigSlaveid[1] = {SLAVE_1, "12345678912"};
+App_SlaveID ConfigSlaveid[1] = {SLAVE_1, "12345678SIG"};
 
 typedef CommEvent_ten (*RxCallBack)(uint8_t SlaveId, uint16_t *);
 
@@ -157,6 +157,12 @@ CommEvent_ten App_CommandStateHandler(MasterCmdCode_ten ComCommand_en, uint8_t S
 	return CmdEvent_e;
 }
 
+/*!
+* @brief Calculate the expected CAN frame using the Payload lenght
+* @param[in] 
+* @param[in] 
+* @return 
+*/
 uint16_t App_ExpectedRxFrame(uint16_t TotalLen)
 {
 	uint16_t expectedframe;
@@ -196,7 +202,7 @@ CommEvent_ten App_RxStateHandler(MasterCmdCode_ten ComCommand_en, uint8_t SlaveN
 	do
 	{
 		// check any rx frame and store
-		App_CanReciveCheck();
+		App_CanReceiveCheck();
 		
 		if(frame_rx_flag)
 		{
@@ -271,6 +277,7 @@ void App_ComStateMachine(MasterStateMachine_tst *ComState_ptr, MasterCmdCode_ten
 
 					if(CommMainState_st.CommStatus_en == NoError_e)
 					{
+						//Command frame send successfully
 						CommMainState_st.State_en = MasterRxState_e;
 					}
 					else 

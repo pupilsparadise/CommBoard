@@ -20,6 +20,6 @@ typedef struct
 void App_CanFDInit(void);
 void App_CanFDSend(const uint8_t *buf, uint8_t len, unsigned long id, uint8_t ext, uint8_t rtr, bool wait_sent);
 void Can_Frame_Prepare(void);
-void App_CanReciveCheck(void);
+void App_CanReceiveCheck(void);
 
 #endif //APP_CANFD_H

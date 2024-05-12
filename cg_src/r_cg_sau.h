@@ -23,7 +23,7 @@
 * Device(s)    : R5F10NPJ
 * Tool-Chain   : CCRL
 * Description  : This file implements device driver for SAU module.
-* Creation Date: 29-04-2024
+* Creation Date: 10-05-2024
 ***********************************************************************************************************************/
 #ifndef SAU_H
 #define SAU_H
@@ -31,6 +31,27 @@
 /***********************************************************************************************************************
 Macro definitions (Register bit)
 ***********************************************************************************************************************/
+/*
+    IrDA Control Register (IRCR) 
+*/
+/* IrDA enable (IRE) */
+#define _00_IRDA_COMMUNICATION_NORMAL           (0x00U) /* serial I/O pins are used for normal serial communication */
+#define _80_IRDA_COMMUNICATION_IRDA             (0x80U) /* serial I/O pins are used for IrDA data communication */
+/* IrDA clock selection (IRCKS2,IRCKS1,IRCKS0) */
+#define _00_IRDA_B_3_16_SELECTED                (0x00U) /* B*3/16 */
+#define _10_IRDA_fCLK_2_SELECTED                (0x10U) /* fCLK/2 */
+#define _20_IRDA_fCLK_4_SELECTED                (0x20U) /* fCLK/4 */
+#define _30_IRDA_fCLK_8_SELECTED                (0x30U) /* fCLK/8 */
+#define _40_IRDA_fCLK_16_SELECTED               (0x40U) /* fCLK/16 */
+#define _50_IRDA_fCLK_32_SELECTED               (0x50U) /* fCLK/32 */
+#define _60_IRDA_fCLK_64_SELECTED               (0x60U) /* fCLK/64 */
+/* IrTxD data polarity switching (IRTXINV) */
+#define _00_IRDA_OUTPUT_IRTXD                   (0x00U) /* data to be transmitted is output to IrTxD as is */
+#define _08_IRDA_OUTPUT_IRTXD_INVERTED          (0x08U) /* data to be transmitted is output to IrTxD after the polarity is inverted */
+/* IrRxD data polarity switching (IRRXINV) */
+#define _00_IRDA_OUTPUT_IRRXD                   (0x00U) /* IrRxD input is used as received data as is */
+#define _04_IRDA_OUTPUT_IRRXD_INVERTED          (0x04U) /* IrRxD input is used as received data after the polarity is inverted */
+
 /*
     The SPSm register is a 16-bit register that is used to select two types of operation clocks (CKm0, CKm1) that are
 commonly supplied to each channel. (SPSm) 
@@ -273,10 +294,23 @@ commonly supplied to each channel. (SPSm)
 /***********************************************************************************************************************
 Macro definitions
 ***********************************************************************************************************************/
+#define _9A00_SAU0_CH2_BAUDRATE_DIVISOR         (0x9A00U) /* transfer clock set by dividing the operating clock */
+#define _9A00_SAU0_CH3_BAUDRATE_DIVISOR         (0x9A00U) /* transfer clock set by dividing the operating clock */
+#define _0020_SMR00_DEFAULT_VALUE               (0x0020U) /* SMR00 default value */
+#define _0020_SMR02_DEFAULT_VALUE               (0x0020U) /* SMR02 default value */
+#define _0020_SMR03_DEFAULT_VALUE               (0x0020U) /* SMR03 default value */
+#define _0004_SCR00_DEFAULT_VALUE               (0x0004U) /* SCR00 default value */
+#define _0004_SCR02_DEFAULT_VALUE               (0x0004U) /* SCR02 default value */
+#define _0004_SCR03_DEFAULT_VALUE               (0x0004U) /* SCR03 default value */
+#define _0A0A_SO0_DEFAULT_VALUE                 (0x0A0AU) /* SO0 default value */
+#define _9A00_SAU1_CH0_BAUDRATE_DIVISOR         (0x9A00U) /* transfer clock set by dividing the operating clock */
+#define _9A00_SAU1_CH1_BAUDRATE_DIVISOR         (0x9A00U) /* transfer clock set by dividing the operating clock */
 #define _0400_SAU1_CH2_BAUDRATE_DIVISOR         (0x0400U) /* transfer clock set by dividing the operating clock */
 #define _0020_SMR10_DEFAULT_VALUE               (0x0020U) /* SMR10 default value */
+#define _0020_SMR11_DEFAULT_VALUE               (0x0020U) /* SMR11 default value */
 #define _0020_SMR12_DEFAULT_VALUE               (0x0020U) /* SMR12 default value */
 #define _0004_SCR10_DEFAULT_VALUE               (0x0004U) /* SCR10 default value */
+#define _0004_SCR11_DEFAULT_VALUE               (0x0004U) /* SCR11 default value */
 #define _0004_SCR12_DEFAULT_VALUE               (0x0004U) /* SCR12 default value */
 #define _0A0A_SO1_DEFAULT_VALUE                 (0x0A0AU) /* SO1 default value */
 
@@ -287,11 +321,30 @@ Typedef definitions
 /***********************************************************************************************************************
 Global functions
 ***********************************************************************************************************************/
+void R_SAU0_Create(void);
+void R_UART1_Create(void);
+void R_UART1_Start(void);
+void R_UART1_Stop(void);
+MD_STATUS R_UART1_Send(uint8_t * const tx_buf, uint16_t tx_num);
+MD_STATUS R_UART1_Receive(uint8_t * const rx_buf, uint16_t rx_num);
 void R_SAU1_Create(void);
+void R_UART2_Create(void);
+void R_UART2_Start(void);
+void R_UART2_Stop(void);
+MD_STATUS R_UART2_Send(uint8_t * const tx_buf, uint16_t tx_num);
+MD_STATUS R_UART2_Receive(uint8_t * const rx_buf, uint16_t rx_num);
 void R_CSI30_Create(void);
 void R_CSI30_Start(void);
 void R_CSI30_Stop(void);
 MD_STATUS R_CSI30_Send_Receive(uint8_t * const tx_buf, uint16_t tx_num, uint8_t * const rx_buf);
+static void r_uart1_callback_receiveend(void);
+static void r_uart1_callback_sendend(void);
+static void r_uart1_callback_error(uint8_t err_type);
+static void r_uart1_callback_softwareoverrun(uint16_t rx_data);
+static void r_uart2_callback_receiveend(void);
+static void r_uart2_callback_sendend(void);
+static void r_uart2_callback_error(uint8_t err_type);
+static void r_uart2_callback_softwareoverrun(uint16_t rx_data);
 static void r_csi30_callback_receiveend(void);
 static void r_csi30_callback_error(uint8_t err_type);
 static void r_csi30_callback_sendend(void);

@@ -23,7 +23,7 @@
 * Device(s)    : R5F10NPJ
 * Tool-Chain   : CCRL
 * Description  : This file implements device driver for Port module.
-* Creation Date: 29-04-2024
+* Creation Date: 10-05-2024
 ***********************************************************************************************************************/
 
 /***********************************************************************************************************************
@@ -62,11 +62,11 @@ void R_PORT_Create(void)
              _04_PFSEG18_SEG | _02_PFSEG17_SEG | _01_PFSEG16_SEG;
     PFSEG3 = _80_PFSEG31_SEG | _40_PFSEG30_SEG | _20_PFSEG29_SEG | _10_PFSEG28_SEG | _08_PFSEG27_SEG | 
              _04_PFSEG26_SEG | _02_PFSEG25_SEG | _01_PFSEG24_SEG;
-    PFSEG4 = _80_PFSEG39_SEG | _40_PFSEG38_SEG | _20_PFSEG37_SEG | _10_PFSEG36_SEG | _08_PFSEG35_SEG | 
+    PFSEG4 = _80_PFSEG39_SEG | _40_PFSEG38_SEG | _20_PFSEG37_SEG | _00_PFSEG36_PORT | _00_PFSEG35_PORT | 
              _04_PFSEG34_SEG | _00_PFSEG33_PORT | _01_PFSEG32_SEG;
     PFSEG5 = _02_PFSEG41_SEG | _01_PFSEG40_SEG;
-    P5 = _00_Pn1_OUTPUT_0;
-    PM5 = _00_PMn1_MODE_OUTPUT;
+    P5 = _10_Pn4_OUTPUT_1 | _08_Pn3_OUTPUT_1 | _00_Pn1_OUTPUT_0;
+    PM5 = _00_PMn4_MODE_OUTPUT | _00_PMn3_MODE_OUTPUT | _00_PMn1_MODE_OUTPUT;
 }
 
 /* Start user code for adding. Do not edit comment generated here */

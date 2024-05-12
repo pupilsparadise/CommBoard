@@ -23,7 +23,7 @@
 * Device(s)    : R5F10NPJ
 * Tool-Chain   : CCRL
 * Description  : This file implements main function.
-* Creation Date: 29-04-2024
+* Creation Date: 10-05-2024
 ***********************************************************************************************************************/
 
 /***********************************************************************************************************************
@@ -32,6 +32,7 @@ Includes
 #include "r_cg_macrodriver.h"
 #include "r_cg_cgc.h"
 #include "r_cg_port.h"
+#include "r_cg_it8bit.h"
 #include "r_cg_sau.h"
 #include "r_cg_intp.h"
 /* Start user code for include. Do not edit comment generated here */

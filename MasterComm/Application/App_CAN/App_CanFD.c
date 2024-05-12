@@ -19,9 +19,9 @@ void App_CanFDInit(void)
 }
 
 /*Check and store CAN rx frame*/
-void App_CanReciveCheck(void)
+void App_CanReceiveCheck(void)
 {
-	uint8_t volatile rx_idx=0;
+	uint8_t volatile rx_idx = 0;
 	
 	if(CanFlagState_st.RxInt)
 	{
@@ -35,20 +35,14 @@ void App_CanReciveCheck(void)
 			App_CanRxFrame[rx_idx + index] = CanRx_st.CanRxBuffer[rx_idx];
 		}
 
-		index += CanRx_st.CanRxLen;
+		/*index += CanRx_st.CanRxLen;
 		
 		if(index == 16)
 		{
 			index = 0;
 			frame_rx_flag = 1;
-		}
+		}*/
 	}
-
-
-
-	
-
-
 }
 
 
