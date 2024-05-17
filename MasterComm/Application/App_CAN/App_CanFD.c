@@ -1,5 +1,6 @@
 #include "App_CanFD.h"
 #include "App_MasterSlaveCom.h"
+#include <string.h>
 
 
 App_CanFlags_tst CanFlagState_st;//Flags related to CAN tx and rx
@@ -26,9 +27,8 @@ void App_CanReceiveCheck(void)
 	if(CanFlagState_st.RxInt)
 	{
 		mcp2518fd_readMsgBufID(&CanRx_st.CanRxLen, CanRx_st.CanRxBuffer);
-		CanFlagState_st.RxInt = 0;
-		DRV_CANFDSPI_ModuleEventClear(CAN_ALL_EVENTS);
-		
+		//Clear the buffer
+		memset((void*)App_CanRxFrame,0,FRAME_LEN);
 		
 		for(rx_idx=0; rx_idx<CanRx_st.CanRxLen; rx_idx++)
 		{
@@ -40,8 +40,14 @@ void App_CanReceiveCheck(void)
 		if(index == 16)
 		{
 			index = 0;
-			frame_rx_flag = 1;
+			
 		}*/
+		frame_rx_flag = 1;
+		
+		//clear buffer
+		memset((void*)CanRx_st.CanRxBuffer,0,FRAME_LEN);
+		CanFlagState_st.RxInt = 0;
+		DRV_CANFDSPI_ModuleEventClear(CAN_ALL_EVENTS);
 	}
 }
 
@@ -55,7 +61,7 @@ void App_CanFDSend(const uint8_t *buf, uint8_t len, unsigned long id, uint8_t ex
 //uint8_t DataReq[64];
 void Can_Frame_Prepare(void)
 {
-uint8_t i;
+    uint8_t i;
    /* DataReq[0] = 'C';
     DataReq[1] = 'O';
     DataReq[2] = 'M';

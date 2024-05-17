@@ -2,6 +2,7 @@
 #include "string.h"
 #include "App_MasterSlaveCom.h"
 #include "App_CanFD.h"
+#include "OtdUART.h"
 #include <stdint.h>
 
 extern App_CanFlags_tst CanFlagState_st;//Flags related to CAN tx and rx
@@ -13,6 +14,8 @@ App_MasterFrame_tst MasterCommandFrame_st;
 //structure to hold the rx frame data responded from slave
 App_MasterFrame_tst MasterRxFrame_st;
 
+App_SlaveResponseFrame_tst SlaveResponse_st;
+
 uint16_t App_SlavePayload;
 
 //Buffer for CAN Tx
@@ -23,6 +26,8 @@ uint8_t App_CanRxFrame[FRAME_LEN];
 
 ComState_ten MasterComState_en;
 
+volatile uint16_t CanRxTimeout;
+
 //Structure maitains the communication state and error state
 MasterStateMachine_tst CommMainState_st = {	MasterCmdState_e,//default com state
 										NoError_e	//default error state
@@ -30,7 +35,7 @@ MasterStateMachine_tst CommMainState_st = {	MasterCmdState_e,//default com state
 
 
 //Config the slave address
-App_SlaveID ConfigSlaveid[1] = {SLAVE_1, "12345678SIG"};
+App_SlaveID ConfigSlaveid[1] = {SLAVE_1, "00000001SIG"};
 
 typedef CommEvent_ten (*RxCallBack)(uint8_t SlaveId, uint16_t *);
 
@@ -89,16 +94,31 @@ CommEvent_ten App_MasterSendCmd(MasterCmdCode_ten Command_en, uint8_t SlaveId ,u
 	
 }
 
+// Function to compare two strings
+int compareStrings(const char *str1, const char *str2) {
+    while (*str1 && *str2 && *str1 == *str2) {
+        str1++;
+        str2++;
+    }
+
+    // Strings are equal if both have reached the end simultaneously
+    if (*str1 == '\0' && *str2 == '\0')
+        return 0;
+    else
+        return (*str1 - *str2); // Return the difference if strings are not equal
+}
+
 /*!
 * @brief Process the CAN Rx frame from slave
 * @param[in] 
 * @param[in] 
 * @return 
 */
-CommEvent_ten App_ProcessResponseFrame(uint8_t SlaveId, uint16_t *SlavePayload)
+CommEvent_ten App_ProcessResponseFrame(uint8_t SlaveId, App_SlaveResponseFrame_tst *Response_st)
 {
 	void* RxResponse_ptr;
 	uint8_t SlaveidCheck;
+	
 	char str[SLAVE_ID_LEN];
 
 	CommEvent_ten Status = NoError_e;
@@ -107,14 +127,21 @@ CommEvent_ten App_ProcessResponseFrame(uint8_t SlaveId, uint16_t *SlavePayload)
 	RxResponse_ptr = (void*)&App_CanRxFrame[0];
 	
 	//copy slave id
-	memcpy(str,((App_SlaveResponseFrame_tst*)RxResponse_ptr)->SlaveAddr, 11);
+	//memcpy(str,((App_SlaveResponseFrame_tst*)RxResponse_ptr)->SlaveAddr, 11);
+	memset(Response_st->SlaveAddr, 0 , sizeof(Response_st->SlaveAddr)); 
+	
+	memcpy(Response_st->SlaveAddr,((App_SlaveResponseFrame_tst*)RxResponse_ptr)->SlaveAddr, 12);
 	//if slave is same then return is 0
-	SlaveidCheck = strcmp(str,ConfigSlaveid[SlaveId].SlaveId);
+	//SlaveidCheck = strcmp(Response_st->SlaveAddr,ConfigSlaveid[SlaveId].SlaveId);
+	SlaveidCheck = compareStrings(Response_st->SlaveAddr,ConfigSlaveid[SlaveId].SlaveId);
 	
 	//Process the rx frame
 	if(SlaveidCheck == 0)
 	{
-		*SlavePayload = ((App_SlaveResponseFrame_tst*)RxResponse_ptr)->PayloadLen;
+		Response_st->PayloadLen = ((App_SlaveResponseFrame_tst*)RxResponse_ptr)->PayloadLen;
+		
+		Response_st->PayloadLen = (Response_st->PayloadLen <<8)|(Response_st->PayloadLen >>8);
+		
 		Status = NoError_e;
 	}
 	else if(SlaveidCheck != 0)
@@ -128,33 +155,6 @@ CommEvent_ten App_ProcessResponseFrame(uint8_t SlaveId, uint16_t *SlavePayload)
 
 	return Status;
 
-}
-
-/*!
-* @brief Process the Command state
-* @param[in] 
-* @param[in] 
-* @return 
-*/
-CommEvent_ten App_CommandStateHandler(MasterCmdCode_ten ComCommand_en, uint8_t SlaveNo , uint16_t PayloadData)
-{
-	CommEvent_ten CmdEvent_e = NoError_e;
-	
-	switch(ComCommand_en)
-	{
-		case MasterGetSlaveStatus_e:
-									CmdEvent_e = App_MasterSendCmd(ComCommand_en,SlaveNo,PayloadData);
-									break;
-
-		case MasterGetSlaveData_e:
-									CmdEvent_e = App_MasterSendCmd(ComCommand_en,SlaveNo,PayloadData);
-									break;	
-		default:
-									break;
-
-	}
-
-	return CmdEvent_e;
 }
 
 /*!
@@ -183,12 +183,41 @@ uint16_t App_ExpectedRxFrame(uint16_t TotalLen)
 	return expectedframe;
 	
 }
+
+CommEvent_ten App_RxStateHandler(void)
+{
+	CommEvent_ten Status = NoError_e;
+	CanRxTimeout = 2000; //timeout 2s
+	
+	do
+	{
+		// check any rx frame and store
+		App_CanReceiveCheck();
+
+	}while((CanRxTimeout<=0)&&(frame_rx_flag));
+	
+	if(frame_rx_flag)
+	{
+		Status = NoError_e;
+	}
+	else
+	{
+		Status = TimeOut_e;
+	}
+	
+	frame_rx_flag = 0;
+
+	
+	return Status;
+}
+
 /*!
 * @brief Process the Recieve state
 * @param[in] 
 * @param[in] 
 * @return 
 */
+/*
 CommEvent_ten App_RxStateHandler(MasterCmdCode_ten ComCommand_en, uint8_t SlaveNo)
 {
 	uint16_t FrameCount;
@@ -214,106 +243,188 @@ CommEvent_ten App_RxStateHandler(MasterCmdCode_ten ComCommand_en, uint8_t SlaveN
 
 	return Status;
 	
-}
+}*/
 
-/*!
-* @brief Process the Error state
-* @param[in] 
-* @param[in] 
-* @return 
-*/
-CommEvent_ten App_EventStateHandler(void)
+#define COM_TIMEOUT	2000
+#define COM_TRIALS	10
+
+App_CommSM_st App_ComCommandStateMachine;
+
+
+void App_StateMachineInit(void)
 {
-	switch (CommMainState_st.CommStatus_en)
-	{
-		case CanTxFail_e:
-							//TODO: ...
-							break;
-		case TimeOut_e:
-							//TODO: ...
-							break;
-		case SlaveIdMismatch_e:
-		 					//change to cmd state for sending command for another Slave id
-							CommMainState_st.State_en = MasterCmdState_e;
-							break;
-		case Busy_e:
-							//Expected frame has not recieved from slave
-							//keep the state to Rx state
-							CommMainState_st.State_en = MasterRxState_e;
-							break;		
-		case NoError_e:
-							//do nothing here, it is handled in each state						
-							break;																											
+	App_ComCommandStateMachine.CurrentState_en = MasterGetSlaveStatus_e;
+	App_ComCommandStateMachine.PrevState_en = MasterGetSlaveStatus_e;
+	App_ComCommandStateMachine.SendTrials = COM_TRIALS;
+	App_ComCommandStateMachine.TimeOut = COM_TIMEOUT;
+	App_ComCommandStateMachine.ComSlaveId = SLAVE_1;
+	App_ComCommandStateMachine.CmdSendFlag = 0;
+	App_ComCommandStateMachine.ExpectedFrameCnt = 0;
 	
-	}
-
 }
 
-/*!
-* @brief Process the Idle state
-* @param[in] 
-* @param[in] 
-* @return 
-*/
-CommEvent_ten App_IdleStateHandler(MasterStateMachine_tst *ComState_ptr)
+CommEvent_ten App_ResponseComSM(MasterCmdCode_ten ComRxState, uint8_t CmdSlaveID)
 {
-
-}
-
-void App_ComStateMachine(MasterStateMachine_tst *ComState_ptr, MasterCmdCode_ten ComCommand_en, uint8_t SlaveNo, uint16_t PayloadData)
-{ 
-	CommEvent_ten Status;
-
-	switch(ComState_ptr->State_en)
+	CommEvent_ten RxEvent_e = NoError_e;
+	
+	switch(ComRxState)
 	{
-		case MasterIdleState_e://Idle state
+		case MasterGetSlaveStatus_e:
+							RxEvent_e = App_RxStateHandler();
+							
+							if(RxEvent_e == NoError_e)
+							{
 
-					//Status = App_IdleStateHandler(ComState_ptr);
-					break;
+								RxEvent_e = App_ProcessResponseFrame(CmdSlaveID,&SlaveResponse_st);
+								
+								#if CAN_DEBUG
+								OtdUart_DebugSend("CAN_DEBUG >> Rx Frame for 0x51 command=====\n");
+								#endif
+							}
+							else
+							{
+								#if CAN_DEBUG
+								OtdUart_DebugSend("CAN_DEBUG >> Error in 0x51 command=====\n");
+								#endif							
+							}
+							
 
-		case MasterCmdState_e://State to send command frame to slave
+							
+							break;
 
-					CommMainState_st.CommStatus_en = App_CommandStateHandler(ComCommand_en,SlaveNo,PayloadData);
-
-					if(CommMainState_st.CommStatus_en == NoError_e)
-					{
-						//Command frame send successfully
-						CommMainState_st.State_en = MasterRxState_e;
-					}
-					else 
-					{
-						//let masterswitch state decide the next state
-						CommMainState_st.State_en = MasterSwitchState_e;
-					}
-					break;
-
-		case MasterRxState_e: //State to recieve frame from slave
-
-					CommMainState_st.CommStatus_en = App_RxStateHandler(ComCommand_en,SlaveNo);
-
-					if(CommMainState_st.CommStatus_en == NoError_e)
-					{
-						CommMainState_st.State_en = MasterIdleState_e;
-					}
-					else 
-					{
-						//let masterswitch state decide the next state
-						CommMainState_st.State_en = MasterSwitchState_e;
-					}
-
-					break;
-
-		case MasterSwitchState_e: //Switches the states depending on Event
-					App_EventStateHandler();
-					break;					
-					
+		case MasterGetSlaveData_e:
+							RxEvent_e = App_RxStateHandler();
+							
+							if(RxEvent_e == NoError_e)
+							{
+								RxEvent_e = NoError_e;//need to update the frame structure;
+								App_ComCommandStateMachine.ExpectedFrameCnt--;//update the frame count
+								
+								#if CAN_DEBUG
+								OtdUart_DebugSend("CAN_DEBUG >> Rx Frame for 0x52 command=====\n");
+								#endif
+							}
+							else
+							{
+								#if CAN_DEBUG
+								OtdUart_DebugSend("CAN_DEBUG >> Error in 0x52 command=====\n");
+								#endif							
+							}							
+							
+							break;	
+		default:
+							break;	
 	}
+	
+	return RxEvent_e;
 }
 
-//Function takes care the of two states
-//1. Get data from Slave
-//2. Send data to server via GSM
+CommEvent_ten App_CommandComSM(void)
+{
+	CommEvent_ten CmdEvent_e = NoError_e;
+	
+	switch(App_ComCommandStateMachine.CurrentState_en)
+	{
+		case MasterGetSlaveStatus_e:
+							if(!App_ComCommandStateMachine.CmdSendFlag)
+							{
+								CmdEvent_e = App_MasterSendCmd(App_ComCommandStateMachine.CurrentState_en,
+								                               App_ComCommandStateMachine.ComSlaveId,
+								                               0xCAFE);
+							
+								#if CAN_DEBUG
+								OtdUart_DebugSend("CAN_DEBUG >> Command 0x51 sent=====\n");
+								#endif
+								
+								App_ComCommandStateMachine.CmdSendFlag = 1;
+							}
+
+							
+							break;
+
+		case MasterGetSlaveData_e:
+							if(!App_ComCommandStateMachine.CmdSendFlag)
+							{
+								if(SlaveResponse_st.PayloadLen > 0)
+								{
+									
+									CmdEvent_e = App_MasterSendCmd(App_ComCommandStateMachine.CurrentState_en,
+												       App_ComCommandStateMachine.ComSlaveId,
+												       SlaveResponse_st.PayloadLen);								
+								}
+								else
+								{
+									#if CAN_DEBUG
+									OtdUart_DebugSend("CAN_DEBUG >> Slave is less than 0=====\n");
+									#endif	
+								}
+
+								
+								#if CAN_DEBUG
+								OtdUart_DebugSend("CAN_DEBUG >> Command 0x52 sent=====\n");
+								#endif		
+								
+								App_ComCommandStateMachine.CmdSendFlag = 1;
+							}
+	
+							
+							break;	
+		default:
+							break;
+
+	}
+	
+	
+	CmdEvent_e = App_ResponseComSM(App_ComCommandStateMachine.CurrentState_en , App_ComCommandStateMachine.ComSlaveId);
+	
+	if(CmdEvent_e == NoError_e)
+	{
+		if(App_ComCommandStateMachine.CurrentState_en == MasterGetSlaveStatus_e)
+		{
+			//slave has some data then fetch it
+			if(SlaveResponse_st.PayloadLen > 0)
+			{
+				App_ComCommandStateMachine.ExpectedFrameCnt = App_ExpectedRxFrame(SlaveResponse_st.PayloadLen);
+				MasterRxFrame_st.FrameCount = App_ComCommandStateMachine.ExpectedFrameCnt;
+				App_ComCommandStateMachine.CurrentState_en = MasterGetSlaveData_e;
+			}
+			else
+			{
+				//slave has no data
+				//TODO: update the next slave id and try for next slave 
+				App_ComCommandStateMachine.CurrentState_en = MasterGetSlaveStatus_e;
+			
+			}
+		}
+		else if(App_ComCommandStateMachine.CurrentState_en == MasterGetSlaveData_e)
+		{
+			if(App_ComCommandStateMachine.ExpectedFrameCnt > 0)
+			{
+				App_ComCommandStateMachine.CurrentState_en = MasterGetSlaveData_e;
+			}
+			else
+			{
+				//slave has no data
+				//TODO: update the next slave id and try for next slave 
+				App_ComCommandStateMachine.CurrentState_en = MasterGetSlaveStatus_e;
+				
+				//TODO: remove this, next slave id has to be updated
+				App_ComCommandStateMachine.ComSlaveId = SLAVE_1;
+			}
+		}
+		else
+		{
+				//do nothing
+		}
+		
+		App_ComCommandStateMachine.CmdSendFlag = 0;
+		
+	}
+	
+}
+
 void App_MainState(void)
 {
-	App_ComStateMachine(&CommMainState_st,MasterGetSlaveStatus_e,SLAVE_1,0xCAFE);
+	App_CommandComSM();
 }
+

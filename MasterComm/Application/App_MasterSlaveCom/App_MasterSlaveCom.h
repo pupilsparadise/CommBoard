@@ -3,6 +3,8 @@
 
 #include "r_cg_macrodriver.h"
 
+#define CAN_DEBUG			1U
+
 #define SLAVE_1				0U				//SLAVE1 , id shall be configured in structure "ConfigSlaveid"
 
 #define FRAME_LEN			64U 				//CAN single frame length
@@ -56,10 +58,22 @@ typedef struct
 typedef struct
 {
 	char 				SlaveAddr[11];	//11 bytes slave address
-	MasterCmdCode_ten 	CmdCode_en;	//Cmd code to slave
+	MasterCmdCode_ten 		CmdCode_en;	//Cmd code to slave
 	uint16_t 			Data;		//Data to send/recieved
 	uint16_t 			FrameCount; //stores the number for CAN frame(each frame is 64byte) received
 }App_MasterFrame_tst;
+
+typedef struct
+{
+	MasterCmdCode_ten CurrentState_en; //stores current state
+	MasterCmdCode_ten PrevState_en;	   //stores prev state	
+	volatile uint8_t CmdSendFlag;	   //flag to make sure command is sent once	
+	volatile uint8_t SendTrials;	   //no of trials taken to send the frame
+	volatile uint8_t ComSlaveId;	   //Slave id
+	volatile uint16_t TimeOut;	   //make sure to have responded data within the Timeout
+	volatile uint16_t ExpectedFrameCnt;//Stores the expected frame count from slave 
+	
+}App_CommSM_st;
 
 #pragma pack
 typedef struct
@@ -70,9 +84,12 @@ typedef struct
 
 //Function Prototype
 CommEvent_ten App_MasterSendCmd(MasterCmdCode_ten CmdCode_en, uint8_t SlaveId ,uint16_t PayloadData);
-CommEvent_ten App_ProcessResponseFrame(uint8_t SlaveId, uint16_t *SlavePayload);
+CommEvent_ten App_ProcessResponseFrame(uint8_t SlaveId, App_SlaveResponseFrame_tst *Response_st);
 
 //Communication Statemachine
 void App_MainState(void);
 
+void App_ComStateMachine(MasterStateMachine_tst *ComState_ptr, MasterCmdCode_ten ComCommand_en, uint8_t SlaveNo, uint16_t PayloadData);
+
+void App_StateMachineInit(void);
 #endif //APP_MASTERSLAVECOM_H

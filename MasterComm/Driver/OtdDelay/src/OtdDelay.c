@@ -37,6 +37,7 @@ Pragma directive
 ***********************************************************************************************************************/
 extern OtdGsmApp_SubState_tst GsmSubState_st;
 extern OtdGsmTcpApp_SubState_tst TcpSubState_st;
+extern volatile uint16_t CanRxTimeout;
 
 volatile uint16_t time_out = 0;
 volatile static uint16_t delay_cnt = 0;
@@ -76,6 +77,7 @@ void OtdDelay_Callback1ms(void)
 	//time_out++;
 	GsmSubState_st.TimeOut--;
 	TcpSubState_st.TcpTimeOut--;
+	CanRxTimeout--;
 }
 
 uint16_t OtdDelay_GetTicks(void)

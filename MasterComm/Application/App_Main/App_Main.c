@@ -30,8 +30,8 @@ void App_CanFDCyclic(void)
 	}*/
 	//App_MasterSendCmd(MASTER_GET_SLAVE_STATUS,SLAVE_1,0xCAFE);
 	
-	//App_MainState();
-	OtdGsmApp_MainStateMachine(); //GSM Main state machine
+	App_MainState();
+	//OtdGsmApp_MainStateMachine(); //GSM Main state machine
 	//OtdUart_DebugSend("Jai Sri Ram");
 	//OtdDelay_ms(1000);
 	
@@ -39,7 +39,8 @@ void App_CanFDCyclic(void)
 }
 void App_Cyclic(void)
 {
-	OtdGsmTcpApp_ServerPrepareData(data,strlen(data));
+	//OtdGsmTcpApp_ServerPrepareData(data,strlen(data));
+	App_StateMachineInit();
 	while(1)
 	{
 		App_CanFDCyclic();
