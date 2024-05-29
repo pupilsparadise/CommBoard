@@ -79,11 +79,19 @@ void OtdUart_Recieve(uint8_t *buf, uint16_t len)
 void OtdUart_DebugSend(volatile const char *s)
 {
 	//TODO: check the altenative for sprintf
-	const uint8_t debug_data[128];
+	/*const uint8_t debug_data[128];
 	sprintf(debug_data,"%s",s);
 	R_UART1_Send((uint8_t * __near)debug_data,strlen(s));	
 	while(!debug_tx_pending);
-	debug_tx_pending = 0;
+	debug_tx_pending = 0;*/
+	
+	while(*s != '\0')
+	{
+		R_UART1_Send((uint8_t *__near)s++, 1);
+		while(!debug_tx_pending);
+		debug_tx_pending = 0;
+	}
+
 }
 
 void OtdUart_IsDataAvailable(void)

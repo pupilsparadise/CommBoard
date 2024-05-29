@@ -120,19 +120,19 @@ uint8_t OtdGsmApp_IsSubArrayPresent(volatile const char *array, uint16_t array_l
 
 void OtdGsmApp_SendATCommand(const char *s)
 { 
-	const uint8_t debug_data[512];
-	sprintf(debug_data,"%s",s);
-	/*
+	/*const uint8_t debug_data[512];
+	sprintf(debug_data,"%s",s);*/
+	
 	while(*s != '\0')
 	{
-		OtdUart_Send((uint8_t *__near)s++, 1,GSM_UART);
+		OtdUart_GsmSend((uint8_t *__near)s++, 1);
 		while(!gsm_tx_pending);
 		gsm_tx_pending = 0;
-	}*/
+	}
 	
-	OtdUart_GsmSend((uint8_t *__near)debug_data, strlen(s));
+	/*OtdUart_GsmSend((uint8_t *__near)debug_data, strlen(s));
 	while(!gsm_tx_pending);
-	gsm_tx_pending = 0;
+	gsm_tx_pending = 0;*/
 }
 
 uint8_t local_rx_buffer[RX_BUFFER_LENGTH];
@@ -226,6 +226,39 @@ static OtdGsmApp_Status_ten OtdGsmApp_GsmRxProcess(OtdGsmApp_SubState_ten rx_sta
 					}
 					
 					break;
+
+			case GSM_DISABLE_ECHO:
+					#if GSM_DEBUG
+					OtdUart_DebugSend("GSM_DEBUG >> GSM Rx response====Processing ATE0 command=====\n");
+					#endif	
+					
+					expected_reply = "OK";//update expected reply
+					
+					if(OtdGsmApp_IsSubArrayPresent(Gsm_RxBuffer,RxIndex,expected_reply,strlen(expected_reply),1,local_rx_buffer) == Gsm_Ok)
+					{
+						#if GSM_DEBUG
+						OtdUart_DebugSend("GSM_DEBUG >> GSM Rx response====Required Response Present=====\n");
+						#endif	
+						
+						Status = Gsm_Ok;
+					}
+					else
+					{
+						if(GsmSubState_st.TimeOut <= 0)
+						{
+							#if GSM_DEBUG
+							OtdUart_DebugSend("GSM_DEBUG >> GSM Rx response====Required Response Not Present & Timeout=====\n");
+							#endif	
+							Status = Gsm_RxTimeOut;
+						}
+						else
+						{
+							#if GSM_DEBUG
+							OtdUart_DebugSend("GSM_DEBUG >> GSM Rx response====Required Response is busy & No Timeout=====\n");
+							#endif
+							Status = Gsm_Busy;
+						}
+					}					
 			case GSM_ATI:
 					#if GSM_DEBUG
 					OtdUart_DebugSend("GSM_DEBUG >> GSM Rx response====Processing ATI command=====\n");
@@ -628,6 +661,20 @@ static OtdGsmApp_Status_ten OtdGsmApp_GsmInitCmdProcess(void)
 				}
 				
 				break;
+		case GSM_DISABLE_ECHO:
+				if(!GsmSubState_st.CmdSendFlag)
+				{
+					OtdGsmApp_ClearRxBuffer();//Clear Rx Buffer 
+					OtdGsmApp_SendATCommand("ATE0\r\n");
+					GsmSubState_st.TimeOut = RX_TIMEOUT;
+					#if GSM_DEBUG
+					OtdUart_DebugSend("GSM_DEBUG >> GSM Sub-StateMachine====ATE0=====send\n");
+					#endif	
+					
+					GsmSubState_st.CmdSendFlag = 1;
+				}
+				
+				break;				
 		case GSM_ATI:
 				if(!GsmSubState_st.CmdSendFlag)
 				{

@@ -2,11 +2,17 @@
 #include "string.h"
 #include "App_MasterSlaveCom.h"
 #include "App_CanFD.h"
+#include "OtdCircBuff_App.h"
 #include "OtdUART.h"
 #include <stdint.h>
 
+
+uint8_t finished = 0;
+
 extern App_CanFlags_tst CanFlagState_st;//Flags related to CAN tx and rx
 extern uint8_t frame_rx_flag;
+
+extern uint8_t waiting_for_data;
 
 //structure to hold the command frame data for sending to slave
 App_MasterFrame_tst MasterCommandFrame_st;
@@ -28,6 +34,14 @@ ComState_ten MasterComState_en;
 
 volatile uint16_t CanRxTimeout;
 
+//uint8_t SlavePayloadData[512];
+#define COM_TIMEOUT	2000
+#define COM_TRIALS	10
+
+App_CommSM_st App_ComCommandStateMachine;
+
+uint16_t ExpectedFrame = 0;
+
 //Structure maitains the communication state and error state
 MasterStateMachine_tst CommMainState_st = {	MasterCmdState_e,//default com state
 										NoError_e	//default error state
@@ -35,10 +49,37 @@ MasterStateMachine_tst CommMainState_st = {	MasterCmdState_e,//default com state
 
 
 //Config the slave address
-App_SlaveID ConfigSlaveid[1] = {SLAVE_1, "00000001SIG"};
+App_SlaveID ConfigSlaveid[MaxSlave_e] = 
+{					Slave1_e, "00000001SIG",{0},0,0,Slave_Active_e,
+					Slave2_e, "00000001SIG",{0},0,0,Slave_Active_e,
+					Slave3_e, "00000001SIG",{0},0,0,Slave_Active_e,	
+					Slave4_e, "00000001SIG",{0},0,0,Slave_Active_e,
+					Slave5_e, "00000001SIG",{0},0,0,Slave_Active_e,
+					Slave6_e, "00000001SIG",{0},0,0,Slave_Active_e,
+					Slave7_e, "00000001SIG",{0},0,0,Slave_Active_e,
+					Slave8_e, "00000001SIG",{0},0,0,Slave_Active_e,
+					Slave9_e, "00000001SIG",{0},0,0,Slave_Active_e,
+					Slave10_e, "00000001SIG",{0},0,0,Slave_Active_e										 
+};
 
-typedef CommEvent_ten (*RxCallBack)(uint8_t SlaveId, uint16_t *);
+//Global buffer to store Slave data
+char SlaveBuf[512];
+uint16_t SlaveBuf_idx = 0;
 
+void App_StoreBytes(uint8_t* buf,App_SlaveID *Resp_ptr,uint8_t numBytes)
+{
+	uint8_t idx;
+	uint8_t slave_no;
+
+	slave_no = App_ComCommandStateMachine.ComSlaveId;
+
+	for (idx= 0; idx < numBytes; idx++) 
+	{
+		//SlaveBuf[SlaveBuf_idx] = buf[idx];
+		Resp_ptr[slave_no].SlaveBufData[Resp_ptr[slave_no].SlaveIdx++] = buf[idx];
+	}
+	
+}
 /*!
 * @brief update the command frame in CAN Tx and send to slave.
 * @param[in] 
@@ -94,18 +135,15 @@ CommEvent_ten App_MasterSendCmd(MasterCmdCode_ten Command_en, uint8_t SlaveId ,u
 	
 }
 
-// Function to compare two strings
-int compareStrings(const char *str1, const char *str2) {
-    while (*str1 && *str2 && *str1 == *str2) {
-        str1++;
-        str2++;
+int areEqual(char arr1[], char arr2[], int len)
+{
+	int i;
+    for ( i = 0; i < len; i++) {
+        if (arr1[i] != arr2[i]) {
+            return 0; // Return false if any character is different
+        }
     }
-
-    // Strings are equal if both have reached the end simultaneously
-    if (*str1 == '\0' && *str2 == '\0')
-        return 0;
-    else
-        return (*str1 - *str2); // Return the difference if strings are not equal
+    return 1; // Return true if all characters are the same
 }
 
 /*!
@@ -128,30 +166,34 @@ CommEvent_ten App_ProcessResponseFrame(uint8_t SlaveId, App_SlaveResponseFrame_t
 	
 	//copy slave id
 	//memcpy(str,((App_SlaveResponseFrame_tst*)RxResponse_ptr)->SlaveAddr, 11);
-	memset(Response_st->SlaveAddr, 0 , sizeof(Response_st->SlaveAddr)); 
+	memset(Response_st->SlaveAddr, '\0' , sizeof(Response_st->SlaveAddr)); 
 	
-	memcpy(Response_st->SlaveAddr,((App_SlaveResponseFrame_tst*)RxResponse_ptr)->SlaveAddr, 12);
+	//memcpy(Response_st->SlaveAddr,((App_SlaveResponseFrame_tst*)RxResponse_ptr)->SlaveAddr, 11);
+	memcpy(Response_st->SlaveAddr,App_CanRxFrame, 11);
+	
 	//if slave is same then return is 0
 	//SlaveidCheck = strcmp(Response_st->SlaveAddr,ConfigSlaveid[SlaveId].SlaveId);
-	SlaveidCheck = compareStrings(Response_st->SlaveAddr,ConfigSlaveid[SlaveId].SlaveId);
+	//SlaveidCheck = compareStrings(Response_st->SlaveAddr,ConfigSlaveid[SlaveId].SlaveId);
+	//SlaveidCheck = strstr(ConfigSlaveid[SlaveId].SlaveId,Response_st->SlaveAddr);
 	
+	SlaveidCheck = areEqual(Response_st->SlaveAddr,ConfigSlaveid[SlaveId].SlaveId,11);
 	//Process the rx frame
-	if(SlaveidCheck == 0)
+	if(SlaveidCheck)
 	{
 		Response_st->PayloadLen = ((App_SlaveResponseFrame_tst*)RxResponse_ptr)->PayloadLen;
 		
-		Response_st->PayloadLen = (Response_st->PayloadLen <<8)|(Response_st->PayloadLen >>8);
+		//Response_st->PayloadLen = (Response_st->PayloadLen <<8)|(Response_st->PayloadLen >>8);
 		
 		Status = NoError_e;
 	}
-	else if(SlaveidCheck != 0)
+	else /*if(SlaveidCheck != 0)*/
 	{
 		Status = SlaveIdMismatch_e;
 	}
-	else 
+	/*else 
 	{
 		//do nothing	
-	}
+	}*/
 
 	return Status;
 
@@ -187,7 +229,7 @@ uint16_t App_ExpectedRxFrame(uint16_t TotalLen)
 CommEvent_ten App_RxStateHandler(void)
 {
 	CommEvent_ten Status = NoError_e;
-	CanRxTimeout = 2000; //timeout 2s
+	CanRxTimeout = 5000; //timeout 2s
 	
 	do
 	{
@@ -244,27 +286,47 @@ CommEvent_ten App_RxStateHandler(MasterCmdCode_ten ComCommand_en, uint8_t SlaveN
 	return Status;
 	
 }*/
+//check if the rx frame and calculated frame are same
+CommEvent_ten App_ValidateSlaveRxFrame(uint16_t ExpFrame,uint8_t FrameIdx)
+{
+	
+	if((FrameIdx % 64) == 0)//should be multiple of 64 as CAN FD is configured to recieve 64 bytes in each frame
+	{
+		if((FrameIdx / 64) == ExpFrame)
+		{
+			return NoError_e;
+		}
+		else 
+		{
+			return FrameMismatch_e;
+		}
+	}
+	else 
+	{
+		return FrameMismatch_e;
+	}
 
-#define COM_TIMEOUT	2000
-#define COM_TRIALS	10
 
-App_CommSM_st App_ComCommandStateMachine;
-
-
+}
 void App_StateMachineInit(void)
 {
 	App_ComCommandStateMachine.CurrentState_en = MasterGetSlaveStatus_e;
 	App_ComCommandStateMachine.PrevState_en = MasterGetSlaveStatus_e;
 	App_ComCommandStateMachine.SendTrials = COM_TRIALS;
 	App_ComCommandStateMachine.TimeOut = COM_TIMEOUT;
-	App_ComCommandStateMachine.ComSlaveId = SLAVE_1;
+//	App_ComCommandStateMachine.ComSlaveId = Slave1_e;
 	App_ComCommandStateMachine.CmdSendFlag = 0;
 	App_ComCommandStateMachine.ExpectedFrameCnt = 0;
 	
 }
 
-CommEvent_ten App_ResponseComSM(MasterCmdCode_ten ComRxState, uint8_t CmdSlaveID)
+CommEvent_ten App_ResponseComSM(MasterCmdCode_ten ComRxState, uint8_t CmdSlaveID , App_SlaveID *Rsp_ptr)
 {
+	#if CAN_DEBUG
+	char dbg_str[100];
+	#endif
+	static uint16_t SlaveIdx = 0;
+	
 	CommEvent_ten RxEvent_e = NoError_e;
 	
 	switch(ComRxState)
@@ -276,10 +338,17 @@ CommEvent_ten App_ResponseComSM(MasterCmdCode_ten ComRxState, uint8_t CmdSlaveID
 							{
 
 								RxEvent_e = App_ProcessResponseFrame(CmdSlaveID,&SlaveResponse_st);
+
+								Rsp_ptr[CmdSlaveID].SlavePayloadLen = SlaveResponse_st.PayloadLen; //store the total payload len expected from slave
 								
-								#if CAN_DEBUG
+								/*#if CAN_DEBUG
 								OtdUart_DebugSend("CAN_DEBUG >> Rx Frame for 0x51 command=====\n");
-								#endif
+								#endif*/
+
+								#if CAN_DEBUG
+								sprintf(dbg_str,"CAN_DEBUG >> ==========Rx Frame for 0x51 command for Slaveid :%d\n",App_ComCommandStateMachine.ComSlaveId);
+								OtdUart_DebugSend(dbg_str);
+								#endif								
 							}
 							else
 							{
@@ -297,12 +366,19 @@ CommEvent_ten App_ResponseComSM(MasterCmdCode_ten ComRxState, uint8_t CmdSlaveID
 							
 							if(RxEvent_e == NoError_e)
 							{
+								App_StoreBytes(&App_CanRxFrame,&ConfigSlaveid,FRAME_LEN);//need to check
+								
 								RxEvent_e = NoError_e;//need to update the frame structure;
 								App_ComCommandStateMachine.ExpectedFrameCnt--;//update the frame count
 								
-								#if CAN_DEBUG
+								/*#if CAN_DEBUG
 								OtdUart_DebugSend("CAN_DEBUG >> Rx Frame for 0x52 command=====\n");
-								#endif
+								#endif*/
+
+								#if CAN_DEBUG
+								sprintf(dbg_str,"CAN_DEBUG >> ==========Rx Frame for 0x52 command for Slaveid :%d\n",App_ComCommandStateMachine.ComSlaveId);
+								OtdUart_DebugSend(dbg_str);
+								#endif									
 							}
 							else
 							{
@@ -313,15 +389,22 @@ CommEvent_ten App_ResponseComSM(MasterCmdCode_ten ComRxState, uint8_t CmdSlaveID
 							
 							break;	
 		default:
+								#if CAN_DEBUG
+								OtdUart_DebugSend("CAN_DEBUG >> No command rx=====\n");
+								#endif			
 							break;	
 	}
 	
 	return RxEvent_e;
 }
 
+CommEvent_ten CmdEvent_e = NoError_e;
 CommEvent_ten App_CommandComSM(void)
 {
-	CommEvent_ten CmdEvent_e = NoError_e;
+	//CommEvent_ten CmdEvent_e = NoError_e;
+	#if CAN_DEBUG
+	char dbg_str[100];
+	#endif
 	
 	switch(App_ComCommandStateMachine.CurrentState_en)
 	{
@@ -333,7 +416,8 @@ CommEvent_ten App_CommandComSM(void)
 								                               0xCAFE);
 							
 								#if CAN_DEBUG
-								OtdUart_DebugSend("CAN_DEBUG >> Command 0x51 sent=====\n");
+								sprintf(dbg_str,"CAN_DEBUG >> ==========Command 0x51 sent for Slaveid :%d\n",App_ComCommandStateMachine.ComSlaveId);
+								OtdUart_DebugSend(dbg_str);
 								#endif
 								
 								App_ComCommandStateMachine.CmdSendFlag = 1;
@@ -361,8 +445,9 @@ CommEvent_ten App_CommandComSM(void)
 
 								
 								#if CAN_DEBUG
-								OtdUart_DebugSend("CAN_DEBUG >> Command 0x52 sent=====\n");
-								#endif		
+								sprintf(dbg_str,"CAN_DEBUG >> ==========Command 0x52 sent for Slaveid :%d\n",App_ComCommandStateMachine.ComSlaveId);
+								OtdUart_DebugSend(dbg_str);
+								#endif	
 								
 								App_ComCommandStateMachine.CmdSendFlag = 1;
 							}
@@ -370,61 +455,131 @@ CommEvent_ten App_CommandComSM(void)
 							
 							break;	
 		default:
+		
+								#if CAN_DEBUG
+								OtdUart_DebugSend("CAN_DEBUG >> No command rx=====\n");
+								#endif	
 							break;
 
 	}
 	
 	
-	CmdEvent_e = App_ResponseComSM(App_ComCommandStateMachine.CurrentState_en , App_ComCommandStateMachine.ComSlaveId);
+	CmdEvent_e = App_ResponseComSM(App_ComCommandStateMachine.CurrentState_en , App_ComCommandStateMachine.ComSlaveId,&ConfigSlaveid);
 	
 	if(CmdEvent_e == NoError_e)
 	{
-		if(App_ComCommandStateMachine.CurrentState_en == MasterGetSlaveStatus_e)
+		if(App_ComCommandStateMachine.CurrentState_en == MasterGetSlaveStatus_e)//Cmd Frame id 0x51
 		{
 			//slave has some data then fetch it
 			if(SlaveResponse_st.PayloadLen > 0)
 			{
 				App_ComCommandStateMachine.ExpectedFrameCnt = App_ExpectedRxFrame(SlaveResponse_st.PayloadLen);
-				MasterRxFrame_st.FrameCount = App_ComCommandStateMachine.ExpectedFrameCnt;
+				ExpectedFrame = App_ComCommandStateMachine.ExpectedFrameCnt;
+				//MasterRxFrame_st.FrameCount = App_ComCommandStateMachine.ExpectedFrameCnt;
 				App_ComCommandStateMachine.CurrentState_en = MasterGetSlaveData_e;
+
+				#if CAN_DEBUG
+				sprintf(dbg_str,"===============================================================================\n");
+				OtdUart_DebugSend(dbg_str);
+				sprintf(dbg_str,"CAN_DEBUG >> ======Slave id==%d Expected Frame Count===%d with Payload===%d\n",App_ComCommandStateMachine.ComSlaveId,MasterRxFrame_st.FrameCount,SlaveResponse_st.PayloadLen);
+				OtdUart_DebugSend(dbg_str);
+				sprintf(dbg_str,"===============================================================================\n");
+				OtdUart_DebugSend(dbg_str);				
+				#endif		
+
+				CmdEvent_e = Busy_e;//as payload is present in slave
 			}
 			else
 			{
 				//slave has no data
 				//TODO: update the next slave id and try for next slave 
 				App_ComCommandStateMachine.CurrentState_en = MasterGetSlaveStatus_e;
+
+				CmdEvent_e = NoPayload;//as no data is present in slave
+				//indicate to scan next slave
 			
 			}
 		}
-		else if(App_ComCommandStateMachine.CurrentState_en == MasterGetSlaveData_e)
+		else if(App_ComCommandStateMachine.CurrentState_en == MasterGetSlaveData_e)//Cmd Frame id 0x52
 		{
 			if(App_ComCommandStateMachine.ExpectedFrameCnt > 0)
 			{
 				App_ComCommandStateMachine.CurrentState_en = MasterGetSlaveData_e;
+				CmdEvent_e = Busy_e;//as payload is present in slave
 			}
 			else
 			{
+				//check if all the frame has recieved properly
+				if(App_ValidateSlaveRxFrame(ExpectedFrame,ConfigSlaveid[App_ComCommandStateMachine.ComSlaveId].SlaveIdx) == NoError_e)
+				{
+					ConfigSlaveid[App_ComCommandStateMachine.ComSlaveId].SlaveIdx = 0;//reset as all the expected frame has recieved
+				}
 				//slave has no data
 				//TODO: update the next slave id and try for next slave 
 				App_ComCommandStateMachine.CurrentState_en = MasterGetSlaveStatus_e;
 				
 				//TODO: remove this, next slave id has to be updated
-				App_ComCommandStateMachine.ComSlaveId = SLAVE_1;
+				
+				
+				finished = 1;
+				waiting_for_data = 0;
+
+				CmdEvent_e = NoPayload;//as no more data is present in slave
 			}
 		}
 		else
 		{
-				//do nothing
+			#if CAN_DEBUG
+			OtdUart_DebugSend("CAN_DEBUG >> ===========Wrong command recieved =\n");
+			#endif	
 		}
 		
-		App_ComCommandStateMachine.CmdSendFlag = 0;
+		App_ComCommandStateMachine.CmdSendFlag = 0; //reset command flag
 		
 	}
+	else if(CmdEvent_e == TimeOut_e)
+	{
+		App_ComCommandStateMachine.CmdSendFlag = 0;
+	}
+	else
+	{
+		//do nothing
+	}
+
+	return CmdEvent_e;
 	
 }
 
-void App_MainState(void)
+SlaveScan App_MainState(void)
 {
-	App_CommandComSM();
+
+	ComSlave_ten SlaveNo;
+	CommEvent_ten StatusEvent_en;
+	//initially retrive the slave id from EEPROM
+	
+	//#if CAN_DEBUG
+	OtdUart_DebugSend("CAN_DEBUG >> ==============Slave reading started \n");
+	//#endif	
+
+	for(SlaveNo = 0; SlaveNo < MaxSlave_e; )
+	{
+		App_ComCommandStateMachine.ComSlaveId = SlaveNo;
+
+		StatusEvent_en = App_CommandComSM();
+
+		if((StatusEvent_en == TimeOut_e) || (StatusEvent_en == NoPayload))
+		{
+			SlaveNo++;//scan next slave
+			App_StateMachineInit(); //reset the flags
+		}
+
+
+	}
+
+	#if CAN_DEBUG
+	OtdUart_DebugSend("CAN_DEBUG >> ===========ALL slave Scan finished \n");
+	#endif
+
+	return SlaveScanDone;
 }
 

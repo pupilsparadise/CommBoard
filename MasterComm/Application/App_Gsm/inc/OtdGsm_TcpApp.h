@@ -45,8 +45,9 @@ typedef struct
 {
 	uint8_t IsNetworkConnected;    	//tcp connection is estalblish if NETOPEN is success	
 	uint8_t IsServerConnected; 	//server with specified ip is connected i.e. CIPOPEN is success
-	uint8_t IsServerDataReady;  	//update the flag once data is available for server 
-	char ServerDataBuf[256];	//buffer to send data
+	uint8_t IsServerDataReady;  	//update the flag once data is available for server
+	uint8_t IsDataPublished;	//update the flag once data is published successfully into server
+	char ServerDataBuf[2048];	//buffer to send data
 	uint16_t DataSize;		//Size of packets need to transmit to server
 }OtdGsm_TcpApp_TcpHandle_tst;
 

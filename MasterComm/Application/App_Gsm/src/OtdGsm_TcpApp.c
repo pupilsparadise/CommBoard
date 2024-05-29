@@ -20,6 +20,8 @@ const char DevAdd[] = "390606000920";
 const char HostBuf[] = SERVER_IP_ADDRESS;
 const char PortBuf[] = SERVER_PORT;*/
 
+uint8_t waiting_for_data = 0;
+
 /***************************************************TCP Publish and recieve handle of data***********************************/
 
 void OtdGsmTcpApp_TcpSendStateInit(void)
@@ -52,6 +54,7 @@ void OtdGsmTcpApp_ServerPrepareData(char *data, uint16_t data_length)
 	
 	TcpHandle_st.DataSize = data_length;
 	TcpHandle_st.IsServerDataReady = READY;
+	//TcpHandle_st.IsDataPublished = UNPUBLISHED;
 }
 
 #define TCP_STATE_CLOSED 0
@@ -59,12 +62,12 @@ void OtdGsmTcpApp_ServerPrepareData(char *data, uint16_t data_length)
 #define TCP_STATE_ERROR	 2 //handles the error of TCP
 
 /*service for the response from GSM modem*/
-uint8_t  tcp_local_rx_buffer[RX_BUFFER_LENGTH];
+//uint8_t  tcp_local_rx_buffer[RX_BUFFER_LENGTH];
 static OtdGsmApp_Status_ten OtdGsmTcpApp_TcpSendRxProcess(OtdGsmTcpApp_SubState_ten rx_state)
 {
-	uint8_t data[512];
-	//char __far data[256];
-	//uint8_t  tcp_local_rx_buffer[RX_BUFFER_LENGTH]; 
+	//uint8_t data[512];
+	char __far data[256];
+	uint8_t  tcp_local_rx_buffer[RX_BUFFER_LENGTH]; 
 	char __far *expected_reply;
 	volatile OtdGsmApp_Status_ten Status = Gsm_Nok;
 	//uint32_t fetched_ICCID;
@@ -180,6 +183,7 @@ static OtdGsmApp_Status_ten OtdGsmTcpApp_TcpSendRxProcess(OtdGsmTcpApp_SubState_
 					
 						Status = Gsm_Ok;
 					}
+					//TODO: Need to Handle Error case
 					else
 					{
 						if(TcpSubState_st.TcpTimeOut <= 0)
@@ -351,6 +355,7 @@ static OtdGsmApp_Status_ten OtdGsmTcpApp_TcpSendRxProcess(OtdGsmTcpApp_SubState_
 						#endif	
 						
 						TcpHandle_st.IsServerDataReady = NOT_READY;//update the flag to prepare next data for server
+						TcpHandle_st.IsDataPublished = PUBLISHED;//Data published to server
 						
 						//Update to next correspoding state 
 						TcpSubState_st.TcpPrevious_en = TcpSubState_st.TcpCurrent_en;
@@ -510,17 +515,20 @@ OtdGsmApp_Status_ten OtdGsmTcpApp_TcpSendCmdProcess(void)
 						TcpSubState_st.TcpPrevious_en = TcpSubState_st.TcpCurrent_en;
 						TcpSubState_st.TcpCurrent_en = TCP_NETWORK_CHECK; //State change for checking Network connection
 						
-						#if GSM_DEBUG
+						//#if GSM_DEBUG
 						OtdUart_DebugSend("TCP_DEBUG >> GSM Sub-State IDLE====SERVER DATA AVAILABLE\n");
-						#endif	
+						//#endif	
 					}
 					else
 					{
+						TcpSubState_st.TcpTimeOut = RX_TIMEOUT;//reset the timer count
 						//No server data is available
 						#if GSM_DEBUG
 						OtdUart_DebugSend("TCP_DEBUG >> GSM Sub-State IDLE====SERVER DATA NOT AVAILABLE\n");
 						#endif							
 						//stay here
+						
+						waiting_for_data = 1;
 					}
 					break;
 					
@@ -536,6 +544,7 @@ OtdGsmApp_Status_ten OtdGsmTcpApp_TcpSendCmdProcess(void)
 					
 					TcpSubState_st.TcpCmdSendFlag = 1;
 				}
+				break;
 				
 		case TCP_SERVER_CHECK:
 				if(!TcpSubState_st.TcpCmdSendFlag)
@@ -548,12 +557,14 @@ OtdGsmApp_Status_ten OtdGsmTcpApp_TcpSendCmdProcess(void)
 					#endif	
 					
 					TcpSubState_st.TcpCmdSendFlag = 1;
-				}				
+				}
+				break;
 		case TCP_NETWORK_CONNECT:
 				if(!TcpSubState_st.TcpCmdSendFlag)
 				{
 					OtdGsmApp_ClearRxBuffer();//Clear Rx Buffer 
 					OtdGsmApp_SendATCommand("AT+NETOPEN\r\n");
+					TcpSubState_st.TcpTimeOut = 7000;
 					OtdDelay_ms(5000);//TODO: "SUCCESS" is recieved after some delay, need to remove this delay later
 					//TcpSubState_st.TimeOut = RX_TIMEOUT;
 					#if GSM_DEBUG
@@ -562,6 +573,7 @@ OtdGsmApp_Status_ten OtdGsmTcpApp_TcpSendCmdProcess(void)
 					
 					TcpSubState_st.TcpCmdSendFlag = 1;
 				}
+				break;
 				
 		case TCP_SERVER_CONNECT:
 				if(!TcpSubState_st.TcpCmdSendFlag)
@@ -570,6 +582,7 @@ OtdGsmApp_Status_ten OtdGsmTcpApp_TcpSendCmdProcess(void)
 					//OtdGsmApp_SendATCommand("AT+CIPOPEN=1,\"TCP\",\"122.166.210.142\",8050\r\n");
 					sprintf(CMDBuff,"AT+CIPOPEN=1,\"TCP\",\"%s\",%s\r\n", SERVER_IP_ADDRESS, SERVER_PORT);
 					OtdGsmApp_SendATCommand(CMDBuff);
+					TcpSubState_st.TcpTimeOut = 7000;
 					//OtdGsmApp_SendATCommand(cipopen_cmd);
 					OtdDelay_ms(5000);//TODO: "SUCCESS" is recieved after some delay, need to remove this delay later
 					#if GSM_DEBUG
@@ -605,9 +618,14 @@ OtdGsmApp_Status_ten OtdGsmTcpApp_TcpSendCmdProcess(void)
 					{
 						sprintf(CMDBuff,"AT+CIPSEND=1,%d\r\n",TcpHandle_st.DataSize);
 						OtdGsmApp_SendATCommand(CMDBuff);
+						//OtdDelay_ms(1000);
 					}
 					else
 					{
+						//No data is available to publish in server 
+						TcpSubState_st.TcpPrevious_en = TcpSubState_st.TcpCurrent_en;
+						TcpSubState_st.TcpCurrent_en = TCP_IDLESTATE; //State change for checking TCP connection
+
 						#if GSM_DEBUG
 						OtdUart_DebugSend("TCP_DEBUG >> GSM Sub-StateMachine====No Server Data Available=====send\n");
 						#endif	
@@ -632,6 +650,9 @@ OtdGsmApp_Status_ten OtdGsmTcpApp_TcpSendCmdProcess(void)
 					{
 						OtdGsmApp_SendATCommand(TcpHandle_st.ServerDataBuf);
 						OtdDelay_ms(2000);//TODO: "SUCCESS" is recieved after some delay, need to remove this delay later
+						//#if GSM_DEBUG
+						OtdUart_DebugSend("TCP_DEBUG >> GSM Sub-StateMachine====Data sennnnnnnt=====send\n");
+						//#endif
 					}
 					else
 					{

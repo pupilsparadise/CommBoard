@@ -4,26 +4,30 @@
 #include "r_cg_macrodriver.h"
 #include "r_cg_userdefine.h"
 
-#define RX_BUFFER_LENGTH 512
+//#define RX_BUFFER_LENGTH 	4096 //buffer len
 
-#define GSM_DEBUG	1U
+#define GSM_DEBUG		0U
 
-#define MAX_TRIALS	10U
-#define RX_TIMEOUT	2000U //default time out is 2 second
-#define RESET_RX_TIMEOUT 30000U //timeout for Rx
+#define MAX_TRIALS		10U
+#define RX_TIMEOUT		2000U 	//default time out is 2 ``````````````````````````````second
+#define RESET_RX_TIMEOUT 	30000U //timeout for Rx
 
-#define FALSE		0U
-#define TRUE		1U
+#define FALSE			0U
+#define TRUE			1U
 
-#define NOT_READY	0U
-#define READY		1U
+#define NOT_READY		0U
+#define READY			1U
 
-#define DISCONNECTED	0U
-#define CONNECTED	1U
+#define DISCONNECTED		0U
+#define CONNECTED		1U
 
-#define GSM_INIT_MAX_COMMAND 11U //number of AT commands used for GSM initialisation, value should be changed if more AT commands added
-#define TCP_INIT_MAX_COMMAND 13U
-#define TCP_SEND_MAX_COMMAND 20U
+#define UNPUBLISHED		0U
+#define PUBLISHED		1U
+
+#define GSM_INIT_MAX_COMMAND 12U //number of AT commands used for GSM initialisation, value should be changed if more AT commands added
+#define TCP_INIT_MAX_COMMAND 14U
+#define TCP_SEND_MAX_COMMAND 21U
+
 typedef enum
 {
 	Gsm_Busy =0,
@@ -49,6 +53,7 @@ typedef enum
 	/**< Reinitializing the GSM module */
 	GSM_RESET = 0,			/**< ----GSM state 1	(Reset the GSM Modem) 			*/
 	GSM_AT,				/**< ----GSM state 1	(Send AT for checking) 			*/
+	GSM_DISABLE_ECHO,
 	GSM_ATI,			/**< ----GSM state 2	(Product identification)		*/
 	GSM_GSN,			/**< ----GSM state 3	(Request IMEI)				*/
 	GSM_STATE_CHECK_PIN,		/**< ----GSM state 4	(Check if PIN) 				*/

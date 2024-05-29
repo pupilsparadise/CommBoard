@@ -24,3 +24,7 @@ void OtdCircBuffApp_Init(void);
 void OtdCircBuffApp_CircBuffPush(volatile unsigned char *data);
 uint16_t OtdCircBuffApp_IsData(void);
 OtdCircBuffApp_ErrorState_ten OtdCircBuffApp_BufferPop(unsigned char *c);
+
+void OtdCircBuffApp_SlaveDataPush(volatile unsigned char *data);
+OtdCircBuffApp_ErrorState_ten OtdCircBuffApp_SlaveDataPop(unsigned char *c);
+void OtdCircBuffApp_ResetSlaveBuf(void);

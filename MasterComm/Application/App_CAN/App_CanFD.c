@@ -47,7 +47,10 @@ void App_CanReceiveCheck(void)
 		//clear buffer
 		memset((void*)CanRx_st.CanRxBuffer,0,FRAME_LEN);
 		CanFlagState_st.RxInt = 0;
-		DRV_CANFDSPI_ModuleEventClear(CAN_ALL_EVENTS);
+		/*DRV_CANFDSPI_ModuleEventClear(CAN_ALL_EVENTS);*/
+		DRV_CANFDSPI_OperationModeSelect(CAN_CONFIGURATION_MODE);
+		DRV_CANFDSPI_GpioModeConfigure(GPIO_MODE_INT, GPIO_MODE_INT);
+		DRV_CANFDSPI_OperationModeSelect(CAN_NORMAL_MODE);
 	}
 }
 
